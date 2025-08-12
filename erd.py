@@ -55,82 +55,77 @@ class ERDGenerator:
                               display_name=f"{attr['name']}\n({attr.get('type', 'VARCHAR')})")
                 self.G.add_edge(name, attr_name, edge_type="attribute")
     
-    def generate_from_ai(self, topic: str):
-        """Generate ERD from topic using AI (simulated for now)"""
-        print(f"🤖 Generating ERD for topic: '{topic}'...")
+    def _call_ai_simulation(self, topic: str) -> Dict:
+        """
+        Simulates a call to an AI service to get an ERD structure.
+        In a real implementation, this would make an API call to a service like OpenAI or Claude.
+        """
+        print("🧠 Simulating AI thinking...")
         
-        # Simulated AI response - in real implementation, you'd use OpenAI/Claude API
+        # More extensive templates with associated keywords for better matching
         erd_templates = {
             "library": {
-                "entities": {
-                    "Book": [
-                        {"name": "book_id", "type": "INT", "is_key": True},
-                        {"name": "title", "type": "VARCHAR(255)"},
-                        {"name": "isbn", "type": "VARCHAR(20)"},
-                        {"name": "publication_year", "type": "INT"}
-                    ],
-                    "Author": [
-                        {"name": "author_id", "type": "INT", "is_key": True},
-                        {"name": "first_name", "type": "VARCHAR(100)"},
-                        {"name": "last_name", "type": "VARCHAR(100)"},
-                        {"name": "birth_date", "type": "DATE"}
-                    ],
-                    "Member": [
-                        {"name": "member_id", "type": "INT", "is_key": True},
-                        {"name": "name", "type": "VARCHAR(255)"},
-                        {"name": "email", "type": "VARCHAR(255)"},
-                        {"name": "join_date", "type": "DATE"}
-                    ]
-                },
-                "relationships": {
-                    "Writes": {"entities": ["Author", "Book"], "attributes": []},
-                    "Borrows": {"entities": ["Member", "Book"], "attributes": [
-                        {"name": "borrow_date", "type": "DATE"},
-                        {"name": "return_date", "type": "DATE"}
-                    ]}
+                "keywords": ["library", "book", "author", "borrow", "librarian"],
+                "schema": {
+                    "entities": {
+                        "Book": [{"name": "book_id", "type": "INT", "is_key": True}, {"name": "title", "type": "VARCHAR(255)"}, {"name": "isbn", "type": "VARCHAR(20)"}],
+                        "Author": [{"name": "author_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}],
+                        "Member": [{"name": "member_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}, {"name": "join_date", "type": "DATE"}]
+                    },
+                    "relationships": {
+                        "Writes": {"entities": ["Author", "Book"], "attributes": []},
+                        "Borrows": {"entities": ["Member", "Book"], "attributes": [{"name": "borrow_date", "type": "DATE"}]}
+                    }
                 }
             },
             "ecommerce": {
-                "entities": {
-                    "Customer": [
-                        {"name": "customer_id", "type": "INT", "is_key": True},
-                        {"name": "name", "type": "VARCHAR(255)"},
-                        {"name": "email", "type": "VARCHAR(255)"},
-                        {"name": "phone", "type": "VARCHAR(20)"}
-                    ],
-                    "Product": [
-                        {"name": "product_id", "type": "INT", "is_key": True},
-                        {"name": "name", "type": "VARCHAR(255)"},
-                        {"name": "price", "type": "DECIMAL(10,2)"},
-                        {"name": "stock_quantity", "type": "INT"}
-                    ],
-                    "Order": [
-                        {"name": "order_id", "type": "INT", "is_key": True},
-                        {"name": "order_date", "type": "DATE"},
-                        {"name": "total_amount", "type": "DECIMAL(10,2)", "is_derived": True}
-                    ]
-                },
-                "relationships": {
-                    "Places": {"entities": ["Customer", "Order"], "attributes": []},
-                    "Contains": {"entities": ["Order", "Product"], "attributes": [
-                        {"name": "quantity", "type": "INT"},
-                        {"name": "unit_price", "type": "DECIMAL(10,2)"}
-                    ]}
+                "keywords": ["ecommerce", "shop", "store", "product", "customer", "order", "cart"],
+                "schema": {
+                    "entities": {
+                        "Customer": [{"name": "customer_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}, {"name": "email", "type": "VARCHAR(255)"}],
+                        "Product": [{"name": "product_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}, {"name": "price", "type": "DECIMAL(10,2)"}],
+                        "Order": [{"name": "order_id", "type": "INT", "is_key": True}, {"name": "order_date", "type": "DATE"}]
+                    },
+                    "relationships": {
+                        "Places": {"entities": ["Customer", "Order"], "attributes": []},
+                        "Contains": {"entities": ["Order", "Product"], "attributes": [{"name": "quantity", "type": "INT"}]}
+                    }
+                }
+            },
+            "school": {
+                "keywords": ["school", "student", "teacher", "course", "college", "university"],
+                "schema": {
+                    "entities": {
+                        "Student": [{"name": "student_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}, {"name": "enrollment_date", "type": "DATE"}],
+                        "Teacher": [{"name": "teacher_id", "type": "INT", "is_key": True}, {"name": "name", "type": "VARCHAR(255)"}, {"name": "department", "type": "VARCHAR(100)"}],
+                        "Course": [{"name": "course_id", "type": "INT", "is_key": True}, {"name": "title", "type": "VARCHAR(255)"}, {"name": "credits", "type": "INT"}]
+                    },
+                    "relationships": {
+                        "Enrolls": {"entities": ["Student", "Course"], "attributes": [{"name": "grade", "type": "CHAR(1)"}]},
+                        "Teaches": {"entities": ["Teacher", "Course"], "attributes": []}
+                    }
                 }
             }
         }
         
-        # Find best match or use default
+        # Find the best matching template based on keyword scores
         topic_lower = topic.lower()
-        if any(keyword in topic_lower for keyword in ["library", "book", "author"]):
-            template = erd_templates["library"]
-        elif any(keyword in topic_lower for keyword in ["shop", "store", "ecommerce", "product", "order"]):
-            template = erd_templates["ecommerce"]
+        scores = {}
+        for name, template in erd_templates.items():
+            score = sum(1 for keyword in template["keywords"] if keyword in topic_lower)
+            scores[name] = score
+
+        best_match = max(scores, key=scores.get) if any(s > 0 for s in scores.values()) else None
+
+        if best_match:
+            print(f"🤖 AI selected the '{best_match}' template.")
+            return erd_templates[best_match]["schema"]
         else:
-            # Default simple template
-            template = {
+            # Default fallback if no keywords match
+            print("🤖 AI couldn't find a matching template, creating a default one.")
+            return {
                 "entities": {
-                    f"{topic.title()}": [
+                    topic.title(): [
                         {"name": "id", "type": "INT", "is_key": True},
                         {"name": "name", "type": "VARCHAR(255)"},
                         {"name": "description", "type": "TEXT"}
@@ -138,114 +133,163 @@ class ERDGenerator:
                 },
                 "relationships": {}
             }
+
+    def generate_from_ai(self, topic: str):
+        """Generate ERD from topic using a simulated AI call"""
+        print(f"🤖 Generating ERD for topic: '{topic}'...")
         
-        # Clear existing graph and build from template
+        # Get the ERD structure from the simulated AI
+        template = self._call_ai_simulation(topic)
+
+        # Clear existing graph and build from the template
         self.G.clear()
         self.entities.clear()
         self.relationships.clear()
         
-        # Add entities
+        # Add entities from the template
         for entity_name, attributes in template["entities"].items():
             self.add_entity(entity_name, attributes)
         
-        # Add relationships
+        # Add relationships from the template
         for rel_name, rel_data in template["relationships"].items():
-            self.add_relationship(rel_name, rel_data["entities"], rel_data["attributes"])
+            self.add_relationship(rel_name, rel_data["entities"], rel_data.get("attributes"))
         
         print(f"✅ Generated ERD with {len(self.entities)} entities and {len(self.relationships)} relationships")
     
     def interactive_input(self):
-        """Interactive mode for manual ERD creation"""
+        """Interactive mode for manual ERD creation with improved UX"""
         print("\n🎯 Interactive ERD Builder")
         print("=" * 40)
         
         while True:
             print("\nOptions:")
             print("1. Add Entity")
-            print("2. Add Relationship") 
-            print("3. Generate ERD")
-            print("4. Exit")
+            print("2. Add Relationship")
+            print("3. View Current ERD")
+            print("4. Generate Visualization")
+            print("5. Exit")
             
-            choice = input("\nEnter your choice (1-4): ").strip()
+            choice = input("\nEnter your choice (1-5): ").strip()
             
             if choice == "1":
                 self._add_entity_interactive()
             elif choice == "2":
                 self._add_relationship_interactive()
             elif choice == "3":
-                self.visualize()
-                break
+                self.view_summary()
             elif choice == "4":
+                self.visualize()
+            elif choice == "5":
                 break
             else:
                 print("❌ Invalid choice. Please try again.")
-    
+
     def _add_entity_interactive(self):
-        """Interactive entity creation"""
+        """Interactive entity creation with validation"""
         entity_name = input("\nEnter entity name: ").strip()
         if not entity_name:
-            print("❌ Entity name cannot be empty")
+            print("❌ Entity name cannot be empty.")
+            return
+        if entity_name in self.entities:
+            print(f"❌ Entity '{entity_name}' already exists.")
             return
         
         attributes = []
+        existing_attr_names = set()
         print(f"\nAdding attributes for '{entity_name}' (press Enter with empty name to finish):")
         
         while True:
             attr_name = input("  Attribute name: ").strip()
             if not attr_name:
                 break
+            if attr_name in existing_attr_names:
+                print(f"❌ Attribute '{attr_name}' already added to this entity.")
+                continue
                 
             attr_type = input(f"  Type for '{attr_name}' (default: VARCHAR): ").strip() or "VARCHAR"
             is_key = input(f"  Is '{attr_name}' a primary key? (y/n): ").strip().lower() == 'y'
             is_derived = input(f"  Is '{attr_name}' derived? (y/n): ").strip().lower() == 'y'
             
-            attributes.append({
-                "name": attr_name,
-                "type": attr_type,
-                "is_key": is_key,
-                "is_derived": is_derived
-            })
+            attributes.append({"name": attr_name, "type": attr_type, "is_key": is_key, "is_derived": is_derived})
+            existing_attr_names.add(attr_name)
         
+        if not attributes:
+            print("⚠️ No attributes added. Entity not created.")
+            return
+
         self.add_entity(entity_name, attributes)
-        print(f"✅ Added entity '{entity_name}' with {len(attributes)} attributes")
-    
+        print(f"✅ Added entity '{entity_name}' with {len(attributes)} attributes.")
+
     def _add_relationship_interactive(self):
-        """Interactive relationship creation"""
-        if len(self.entities) < 2:
-            print("❌ Need at least 2 entities to create a relationship")
+        """Interactive relationship creation with validation"""
+        if len(self.entities) < 1:
+            print("❌ You must add at least one entity before creating a relationship.")
             return
         
-        print(f"\nAvailable entities: {list(self.entities.keys())}")
-        rel_name = input("Enter relationship name: ").strip()
-        
-        entities = []
-        print("Enter entities for this relationship (press Enter to finish):")
+        print("\nAvailable entities:")
+        for e in self.entities:
+            print(f"- {e}")
+
+        rel_name = input("Enter relationship name (e.g., 'WorksIn'): ").strip()
+        if not rel_name:
+            print("❌ Relationship name cannot be empty.")
+            return
+        if rel_name in self.relationships:
+            print(f"❌ Relationship '{rel_name}' already exists.")
+            return
+
+        entities_in_rel = []
+        print("Enter entities for this relationship (one per line, press Enter to finish):")
         while True:
-            entity = input("  Entity name: ").strip()
-            if not entity:
+            entity_name = input("  Entity name: ").strip()
+            if not entity_name:
                 break
-            if entity in self.entities:
-                entities.append(entity)
+            if entity_name not in self.entities:
+                print(f"❌ Entity '{entity_name}' not found. Please choose from the list above.")
+            elif entity_name in entities_in_rel:
+                print(f"❌ Entity '{entity_name}' already added to this relationship.")
             else:
-                print(f"❌ Entity '{entity}' not found")
+                entities_in_rel.append(entity_name)
         
-        if len(entities) < 2:
-            print("❌ Need at least 2 entities for a relationship")
+        if len(entities_in_rel) < 2:
+            print("❌ A relationship requires at least two distinct entities.")
             return
-        
-        # Optional relationship attributes
+
         attributes = []
-        add_attrs = input("Add relationship attributes? (y/n): ").strip().lower() == 'y'
-        if add_attrs:
+        if input("Add attributes to this relationship? (y/n): ").strip().lower() == 'y':
+            print(f"\nAdding attributes for '{rel_name}' (press Enter with empty name to finish):")
             while True:
-                attr_name = input("  Attribute name (Enter to finish): ").strip()
+                attr_name = input("  Attribute name: ").strip()
                 if not attr_name:
                     break
-                attr_type = input(f"  Type for '{attr_name}': ").strip() or "VARCHAR"
+                attr_type = input(f"  Type for '{attr_name}' (default: VARCHAR): ").strip() or "VARCHAR"
                 attributes.append({"name": attr_name, "type": attr_type})
-        
-        self.add_relationship(rel_name, entities, attributes)
-        print(f"✅ Added relationship '{rel_name}' between {entities}")
+
+        self.add_relationship(rel_name, entities_in_rel, attributes)
+        print(f"✅ Added relationship '{rel_name}' between {entities_in_rel}.")
+
+    def view_summary(self):
+        """Prints a summary of the current ERD"""
+        print("\n📋 Current ERD Summary")
+        print("=" * 40)
+        if not self.entities:
+            print("ERD is currently empty.")
+            return
+
+        print("Entities:")
+        for name, attrs in self.entities.items():
+            attr_strs = [f"{a['name']} ({a['type']}){' [PK]' if a.get('is_key') else ''}" for a in attrs]
+            print(f"- {name}: {', '.join(attr_strs)}")
+
+        if self.relationships:
+            print("\nRelationships:")
+            for name, rel in self.relationships.items():
+                entities = ' -- '.join(rel['entities'])
+                attr_str = ""
+                if rel.get('attributes'):
+                    attr_strs = [f"{a['name']} ({a['type']})" for a in rel['attributes']]
+                    attr_str = f" (Attributes: {', '.join(attr_strs)})"
+                print(f"- {name}: {entities}{attr_str}")
     
     def visualize(self):
         """Visualize the ERD"""
@@ -335,34 +379,38 @@ class ERDGenerator:
         print("✅ ERD Visualization Complete!")
 
 def main():
-    """Main function to run the ERD generator"""
+    """Main function to run the ERD generator with a persistent loop"""
     erd = ERDGenerator()
     
-    print("🎨 Advanced ERD Generator")
-    print("=" * 50)
-    print("Choose mode:")
-    print("1. Interactive Mode (Manual Input)")
-    print("2. AI Generation from Topic")
-    print("3. Demo Mode")
-    
-    choice = input("\nEnter your choice (1-3): ").strip()
-    
-    if choice == "1":
-        erd.interactive_input()
-    elif choice == "2":
-        topic = input("Enter topic for AI generation: ").strip()
-        if topic:
-            erd.generate_from_ai(topic)
+    while True:
+        print("\n🎨 Advanced ERD Generator")
+        print("=" * 50)
+        print("Choose mode:")
+        print("1. Interactive Mode (Manual Input)")
+        print("2. AI Generation from Topic")
+        print("3. Demo Mode (Library System)")
+        print("4. Exit")
+
+        choice = input("\nEnter your choice (1-4): ").strip()
+
+        if choice == "1":
+            erd.interactive_input()
+        elif choice == "2":
+            topic = input("Enter topic for AI generation: ").strip()
+            if topic:
+                erd.generate_from_ai(topic)
+                erd.visualize()
+            else:
+                print("❌ Topic cannot be empty.")
+        elif choice == "3":
+            print("🎭 Running demo with Library Management System...")
+            erd.generate_from_ai("library")
             erd.visualize()
+        elif choice == "4":
+            print("👋 Goodbye!")
+            break
         else:
-            print("❌ Topic cannot be empty")
-    elif choice == "3":
-        # Demo with library system
-        print("🎭 Running demo with Library Management System...")
-        erd.generate_from_ai("library")
-        erd.visualize()
-    else:
-        print("❌ Invalid choice")
+            print("❌ Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     main()
