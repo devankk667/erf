@@ -4,7 +4,6 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import json
-import requests
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -562,6 +561,8 @@ class ERDGenerator:
 
         if save_path:
             try:
+                # Ensure the directory exists
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 plt.savefig(save_path, format='jpeg', dpi=300, bbox_inches='tight')
                 print(f"ERD saved to {save_path}")
 
@@ -831,15 +832,15 @@ def main():
     print("\n📚 Example 1: Generating Library Management System ERD")
     erd.generate_from_prompt("Create a library management system with books, authors, and members")
     erd.print_summary()
-    erd.visualize(save_path="library_erd.jpg")
+    erd.visualize(save_path="examples/library_erd.jpg")
     
     # Save SQL schema and sample data
-    erd.save_sql_to_file("library_schema.sql")
+    erd.save_sql_to_file("examples/library_schema.sql")
     print("\n📝 Sample Data for Library System:")
     sample_data = erd.generate_sample_data()
-    with open("library_sample_data.sql", 'w') as f:
+    with open("examples/library_sample_data.sql", 'w') as f:
         f.write(sample_data)
-    print("Sample data saved to library_sample_data.sql")
+    print("Sample data saved to examples/library_sample_data.sql")
 
     # Clear for next example
     erd = ERDGenerator()
@@ -848,18 +849,18 @@ def main():
     print("\n🛒 Example 2: Generating E-commerce System ERD")
     erd.generate_from_prompt("Design an online shopping platform with customers, products, and orders")
     erd.print_summary()
-    erd.visualize(save_path="ecommerce_erd.jpg")
+    erd.visualize(save_path="examples/ecommerce_erd.jpg")
 
     # Export to SQL
     print("\n💾 SQL Schema Export:")
     print(erd.export_to_sql())
-    erd.save_sql_to_file("ecommerce_schema.sql")
+    erd.save_sql_to_file("examples/ecommerce_schema.sql")
     
     print("\n📝 Sample Data for E-commerce System:")
     sample_data = erd.generate_sample_data()
-    with open("ecommerce_sample_data.sql", 'w') as f:
+    with open("examples/ecommerce_sample_data.sql", 'w') as f:
         f.write(sample_data)
-    print("Sample data saved to ecommerce_sample_data.sql")
+    print("Sample data saved to examples/ecommerce_sample_data.sql")
 
     # Interactive mode
     print("\n🎮 Interactive Mode:")
@@ -891,15 +892,15 @@ def main():
                 
                 # Generate filename based on input
                 filename_base = user_input.lower().replace(' ', '_')[:20]
-                erd.visualize(save_path=f"{filename_base}_erd.jpg")
-                erd.save_sql_to_file(f"{filename_base}_schema.sql")
+                erd.visualize(save_path=f"examples/{filename_base}_erd.jpg")
+                erd.save_sql_to_file(f"examples/{filename_base}_schema.sql")
                 
                 # Generate and save sample data
                 sample_data = erd.generate_sample_data()
                 if sample_data:
-                    with open(f"{filename_base}_sample_data.sql", 'w') as f:
+                    with open(f"examples/{filename_base}_sample_data.sql", 'w') as f:
                         f.write(sample_data)
-                    print(f"Sample data saved to {filename_base}_sample_data.sql")
+                    print(f"Sample data saved to examples/{filename_base}_sample_data.sql")
         
         elif choice == '2':
             if not erd.db_manager.database_url:
