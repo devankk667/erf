@@ -1,4 +1,6 @@
 import networkx as nx
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import json
@@ -480,15 +482,22 @@ class ERDGenerator:
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, format='jpeg', dpi=300, bbox_inches='tight')
-            print(f"ERD saved to {save_path}")
+            try:
+                plt.savefig(save_path, format='jpeg', dpi=300, bbox_inches='tight')
+                print(f"ERD saved to {save_path}")
 
-            # Save visualization info to database if we have a current schema
-            if self.current_schema_id and self.db_manager.database_url:
-                sql_path = save_path.replace('.jpg', '_schema.sql')
-                self.db_manager.save_visualization_info(self.current_schema_id, save_path, sql_path)
+                # Save visualization info to database if we have a current schema
+                if self.current_schema_id and self.db_manager.database_url:
+                    sql_path = save_path.replace('.jpg', '_schema.sql')
+                    self.db_manager.save_visualization_info(self.current_schema_id, save_path, sql_path)
+            except Exception as e:
+                print(f"Error saving ERD: {e}")
 
-        plt.show()
+        # Don't call plt.show() in headless environment
+        try:
+            plt.show()
+        except Exception:
+            print("Note: Running in headless mode - ERD saved to file")
 
     def export_to_sql(self) -> str:
         """Export the ERD to SQL CREATE TABLE statements"""
@@ -743,7 +752,7 @@ def main():
     print("\n📚 Example 1: Generating Library Management System ERD")
     erd.generate_from_prompt("Create a library management system with books, authors, and members")
     erd.print_summary()
-    erd.visualize(save_path="library_erd.jpg", ask_save_path=True)
+    erd.visualize(save_path="library_erd.jpg")
     
     # Save SQL schema and sample data
     erd.save_sql_to_file("library_schema.sql")
@@ -760,7 +769,7 @@ def main():
     print("\n🛒 Example 2: Generating E-commerce System ERD")
     erd.generate_from_prompt("Design an online shopping platform with customers, products, and orders")
     erd.print_summary()
-    erd.visualize(save_path="ecommerce_erd.jpg", ask_save_path=True)
+    erd.visualize(save_path="ecommerce_erd.jpg")
 
     # Export to SQL
     print("\n💾 SQL Schema Export:")
@@ -803,7 +812,7 @@ def main():
                 
                 # Generate filename based on input
                 filename_base = user_input.lower().replace(' ', '_')[:20]
-                erd.visualize(save_path=f"{filename_base}_erd.jpg", ask_save_path=True)
+                erd.visualize(save_path=f"{filename_base}_erd.jpg")
                 erd.save_sql_to_file(f"{filename_base}_schema.sql")
                 
                 # Generate and save sample data
