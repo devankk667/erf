@@ -268,7 +268,7 @@ class ERDGenerator:
         # More extensive templates with associated keywords for better matching
         erd_templates = {
             "library": {
-                "keywords": ["library", "book", "author", "borrow", "librarian"],
+                "keywords": ["library", "book", "author", "borrow", "librarian", "reading", "literature"],
                 "schema": {
                     "entities": {
                         "Book": [{"name": "book_id", "type": "INT", "is_key": True}, 
@@ -288,7 +288,7 @@ class ERDGenerator:
                 }
             },
             "ecommerce": {
-                "keywords": ["shop", "store", "product", "customer", "order", "purchase"],
+                "keywords": ["shop", "store", "product", "customer", "order", "purchase", "ecommerce", "online", "shopping", "platform"],
                 "schema": {
                     "entities": {
                         "Customer": [{"name": "customer_id", "type": "INT", "is_key": True},
@@ -309,7 +309,7 @@ class ERDGenerator:
                 }
             },
             "school": {
-                "keywords": ["school", "student", "teacher", "course", "class", "grade"],
+                "keywords": ["school", "student", "teacher", "course", "class", "grade", "education", "university", "college"],
                 "schema": {
                     "entities": {
                         "Student": [{"name": "student_id", "type": "INT", "is_key": True},
@@ -328,12 +328,83 @@ class ERDGenerator:
                         "Teaches": {"entities": ["Instructor", "Course"]}
                     }
                 }
+            },
+            "gym": {
+                "keywords": ["gym", "trainer", "member", "workout", "fitness", "exercise", "training", "membership"],
+                "schema": {
+                    "entities": {
+                        "Trainer": [{"name": "trainer_id", "type": "INT", "is_key": True},
+                                   {"name": "name", "type": "VARCHAR(255)"},
+                                   {"name": "specialization", "type": "VARCHAR(100)"},
+                                   {"name": "hire_date", "type": "DATE"}],
+                        "Member": [{"name": "member_id", "type": "INT", "is_key": True},
+                                  {"name": "name", "type": "VARCHAR(255)"},
+                                  {"name": "membership_type", "type": "VARCHAR(50)"},
+                                  {"name": "join_date", "type": "DATE"}],
+                        "Workout": [{"name": "workout_id", "type": "INT", "is_key": True},
+                                   {"name": "name", "type": "VARCHAR(255)"},
+                                   {"name": "duration", "type": "INT"},
+                                   {"name": "difficulty_level", "type": "VARCHAR(20)"}]
+                    },
+                    "relationships": {
+                        "Trains": {"entities": ["Trainer", "Member"],
+                                  "attributes": [{"name": "session_date", "type": "DATE"}]},
+                        "Performs": {"entities": ["Member", "Workout"],
+                                    "attributes": [{"name": "sets", "type": "INT"}, {"name": "reps", "type": "INT"}]}
+                    }
+                }
+            },
+            "hotel": {
+                "keywords": ["hotel", "guest", "room", "booking", "reservation", "accommodation", "hospitality"],
+                "schema": {
+                    "entities": {
+                        "Guest": [{"name": "guest_id", "type": "INT", "is_key": True},
+                                 {"name": "name", "type": "VARCHAR(255)"},
+                                 {"name": "email", "type": "VARCHAR(255)"},
+                                 {"name": "phone", "type": "VARCHAR(20)"}],
+                        "Room": [{"name": "room_id", "type": "INT", "is_key": True},
+                                {"name": "room_number", "type": "VARCHAR(10)"},
+                                {"name": "room_type", "type": "VARCHAR(50)"},
+                                {"name": "price_per_night", "type": "DECIMAL(10,2)"}],
+                        "Booking": [{"name": "booking_id", "type": "INT", "is_key": True},
+                                   {"name": "check_in_date", "type": "DATE"},
+                                   {"name": "check_out_date", "type": "DATE"},
+                                   {"name": "total_amount", "type": "DECIMAL(10,2)"}]
+                    },
+                    "relationships": {
+                        "Makes": {"entities": ["Guest", "Booking"]},
+                        "Reserves": {"entities": ["Booking", "Room"]}
+                    }
+                }
+            },
+            "hospital": {
+                "keywords": ["hospital", "patient", "doctor", "medical", "healthcare", "treatment", "appointment"],
+                "schema": {
+                    "entities": {
+                        "Patient": [{"name": "patient_id", "type": "INT", "is_key": True},
+                                   {"name": "name", "type": "VARCHAR(255)"},
+                                   {"name": "date_of_birth", "type": "DATE"},
+                                   {"name": "phone", "type": "VARCHAR(20)"}],
+                        "Doctor": [{"name": "doctor_id", "type": "INT", "is_key": True},
+                                  {"name": "name", "type": "VARCHAR(255)"},
+                                  {"name": "specialization", "type": "VARCHAR(100)"},
+                                  {"name": "license_number", "type": "VARCHAR(50)"}],
+                        "Appointment": [{"name": "appointment_id", "type": "INT", "is_key": True},
+                                       {"name": "appointment_date", "type": "DATE"},
+                                       {"name": "appointment_time", "type": "TIME"},
+                                       {"name": "status", "type": "VARCHAR(20)"}]
+                    },
+                    "relationships": {
+                        "Schedules": {"entities": ["Patient", "Appointment"]},
+                        "Conducts": {"entities": ["Doctor", "Appointment"]}
+                    }
+                }
             }
         }
 
         # Find best matching template
         topic_lower = topic.lower()
-        best_match = "library"  # default
+        best_match = None
         max_score = 0
 
         for template_name, template_data in erd_templates.items():
@@ -341,6 +412,14 @@ class ERDGenerator:
             if score > max_score:
                 max_score = score
                 best_match = template_name
+
+        # If no keywords match, try to infer from common words
+        if best_match is None:
+            if any(word in topic_lower for word in ["management", "system"]):
+                # Generic management system - use library as fallback but customize
+                best_match = "library"
+            else:
+                best_match = "ecommerce"  # Default fallback
 
         print(f"✅ Generated ERD for: {best_match} domain")
         return erd_templates[best_match]["schema"]
