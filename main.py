@@ -3,13 +3,214 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import json
 import requests
-from typing import Dict, List, Tuple
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from datetime import datetime
+from typing import Dict, List, Tuple, Optional
+
+class DatabaseManager:
+    def __init__(self):
+        self.database_url = os.environ.get('DATABASE_URL')
+        if self.database_url:
+            self.init_database()
+
+    def get_connection(self):
+        """Get database connection"""
+        if not self.database_url:
+            return None
+        return psycopg2.connect(self.database_url)
+
+    def init_database(self):
+        """Initialize database tables for storing ERD schemas"""
+        try:
+            conn = self.get_connection()
+            if not conn:
+                return
+
+            cur = conn.cursor()
+
+            # Create tables for storing ERD schemas
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS erd_schemas (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    schema_data JSONB NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS erd_visualizations (
+                    id SERIAL PRIMARY KEY,
+                    schema_id INTEGER REFERENCES erd_schemas(id) ON DELETE CASCADE,
+                    image_path VARCHAR(500),
+                    sql_path VARCHAR(500),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            conn.commit()
+            print("✅ Database tables initialized successfully!")
+
+        except psycopg2.Error as e:
+            print(f"❌ Database initialization error: {e}")
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
+    def save_schema(self, name: str, description: str, entities: Dict, relationships: Dict) -> Optional[int]:
+        """Save ERD schema to database"""
+        if not self.database_url:
+            print("⚠️ No database connection available")
+            return None
+
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+
+            schema_data = {
+                "entities": entities,
+                "relationships": relationships
+            }
+
+            cur.execute("""
+                INSERT INTO erd_schemas (name, description, schema_data)
+                VALUES (%s, %s, %s)
+                RETURNING id;
+            """, (name, description, json.dumps(schema_data)))
+
+            schema_id = cur.fetchone()[0]
+            conn.commit()
+            print(f"✅ Schema '{name}' saved to database with ID: {schema_id}")
+            return schema_id
+
+        except psycopg2.Error as e:
+            print(f"❌ Error saving schema: {e}")
+            return None
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
+    def load_schema(self, schema_id: int) -> Optional[Dict]:
+        """Load ERD schema from database"""
+        if not self.database_url:
+            print("⚠️ No database connection available")
+            return None
+
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+
+            cur.execute("""
+                SELECT * FROM erd_schemas WHERE id = %s;
+            """, (schema_id,))
+
+            result = cur.fetchone()
+            if result:
+                return dict(result)
+            else:
+                print(f"❌ Schema with ID {schema_id} not found")
+                return None
+
+        except psycopg2.Error as e:
+            print(f"❌ Error loading schema: {e}")
+            return None
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
+    def list_schemas(self) -> List[Dict]:
+        """List all saved ERD schemas"""
+        if not self.database_url:
+            print("⚠️ No database connection available")
+            return []
+
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+
+            cur.execute("""
+                SELECT id, name, description, created_at, updated_at
+                FROM erd_schemas
+                ORDER BY updated_at DESC;
+            """)
+
+            results = cur.fetchall()
+            return [dict(row) for row in results]
+
+        except psycopg2.Error as e:
+            print(f"❌ Error listing schemas: {e}")
+            return []
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
+    def delete_schema(self, schema_id: int) -> bool:
+        """Delete ERD schema from database"""
+        if not self.database_url:
+            print("⚠️ No database connection available")
+            return False
+
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+
+            cur.execute("DELETE FROM erd_schemas WHERE id = %s;", (schema_id,))
+            
+            if cur.rowcount > 0:
+                conn.commit()
+                print(f"✅ Schema with ID {schema_id} deleted successfully")
+                return True
+            else:
+                print(f"❌ Schema with ID {schema_id} not found")
+                return False
+
+        except psycopg2.Error as e:
+            print(f"❌ Error deleting schema: {e}")
+            return False
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
+    def save_visualization_info(self, schema_id: int, image_path: str, sql_path: str):
+        """Save visualization file paths"""
+        if not self.database_url:
+            return
+
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+
+            cur.execute("""
+                INSERT INTO erd_visualizations (schema_id, image_path, sql_path)
+                VALUES (%s, %s, %s);
+            """, (schema_id, image_path, sql_path))
+
+            conn.commit()
+
+        except psycopg2.Error as e:
+            print(f"❌ Error saving visualization info: {e}")
+        finally:
+            if conn:
+                cur.close()
+                conn.close()
+
 
 class ERDGenerator:
     def __init__(self):
         self.G = nx.DiGraph()
         self.entities = {}
         self.relationships = {}
+        self.db_manager = DatabaseManager()
+        self.current_schema_id = None
 
     def add_entity(self, name: str, attributes: List[Dict]):
         """Add an entity with its attributes"""
@@ -142,7 +343,7 @@ class ERDGenerator:
         print(f"✅ Generated ERD for: {best_match} domain")
         return erd_templates[best_match]["schema"]
 
-    def generate_from_prompt(self, prompt: str):
+    def generate_from_prompt(self, prompt: str, save_to_db: bool = False, schema_name: str = None):
         """Generate ERD from a natural language prompt"""
         schema = self._call_ai_simulation(prompt)
 
@@ -153,6 +354,47 @@ class ERDGenerator:
         # Add relationships
         for rel_name, rel_data in schema["relationships"].items():
             self.add_relationship(rel_name, rel_data["entities"], rel_data.get("attributes", []))
+
+        # Save to database if requested
+        if save_to_db and schema_name and self.db_manager.database_url:
+            self.current_schema_id = self.db_manager.save_schema(
+                schema_name, prompt, self.entities, self.relationships
+            )
+
+    def load_from_database(self, schema_id: int):
+        """Load ERD from database"""
+        schema_data = self.db_manager.load_schema(schema_id)
+        if not schema_data:
+            return False
+
+        # Clear current data
+        self.G.clear()
+        self.entities.clear()
+        self.relationships.clear()
+
+        # Load entities and relationships
+        schema_json = schema_data['schema_data']
+        
+        for entity_name, attributes in schema_json["entities"].items():
+            self.add_entity(entity_name, attributes)
+
+        for rel_name, rel_data in schema_json["relationships"].items():
+            self.add_relationship(rel_name, rel_data["entities"], rel_data.get("attributes", []))
+
+        self.current_schema_id = schema_id
+        print(f"✅ Loaded schema: {schema_data['name']}")
+        return True
+
+    def save_current_schema(self, name: str, description: str = ""):
+        """Save current ERD schema to database"""
+        if not self.entities:
+            print("❌ No schema to save")
+            return None
+
+        self.current_schema_id = self.db_manager.save_schema(
+            name, description, self.entities, self.relationships
+        )
+        return self.current_schema_id
 
     def visualize(self, save_path: str = None, figsize: Tuple[int, int] = (12, 8), ask_save_path: bool = False):
         """Visualize the ERD using matplotlib"""
@@ -240,6 +482,11 @@ class ERDGenerator:
         if save_path:
             plt.savefig(save_path, format='jpeg', dpi=300, bbox_inches='tight')
             print(f"ERD saved to {save_path}")
+
+            # Save visualization info to database if we have a current schema
+            if self.current_schema_id and self.db_manager.database_url:
+                sql_path = save_path.replace('.jpg', '_schema.sql')
+                self.db_manager.save_visualization_info(self.current_schema_id, save_path, sql_path)
 
         plt.show()
 
@@ -395,9 +642,99 @@ class ERDGenerator:
                     print(f"    - {attr['name']}: {attr.get('type', 'VARCHAR')}")
 
 
+def database_menu(erd: ERDGenerator):
+    """Database management menu"""
+    while True:
+        print("\n" + "="*50)
+        print("DATABASE MANAGEMENT")
+        print("="*50)
+        print("1. Save current schema to database")
+        print("2. Load schema from database")
+        print("3. List all saved schemas")
+        print("4. Delete schema from database")
+        print("5. Back to main menu")
+        
+        choice = input("\nEnter your choice (1-5): ").strip()
+        
+        if choice == '1':
+            if not erd.entities:
+                print("❌ No schema loaded to save")
+                continue
+            name = input("Enter schema name: ").strip()
+            if name:
+                description = input("Enter description (optional): ").strip()
+                erd.save_current_schema(name, description)
+        
+        elif choice == '2':
+            schemas = erd.db_manager.list_schemas()
+            if not schemas:
+                print("❌ No schemas found in database")
+                continue
+                
+            print("\nAvailable schemas:")
+            for schema in schemas:
+                print(f"{schema['id']}: {schema['name']} - {schema['description'][:50]}...")
+                print(f"   Created: {schema['created_at']}")
+            
+            try:
+                schema_id = int(input("\nEnter schema ID to load: "))
+                if erd.load_from_database(schema_id):
+                    print("Schema loaded successfully!")
+                    return  # Return to main menu after loading
+            except ValueError:
+                print("❌ Invalid ID entered")
+        
+        elif choice == '3':
+            schemas = erd.db_manager.list_schemas()
+            if not schemas:
+                print("❌ No schemas found in database")
+                continue
+                
+            print("\nSaved schemas:")
+            print("-" * 80)
+            for schema in schemas:
+                print(f"ID: {schema['id']}")
+                print(f"Name: {schema['name']}")
+                print(f"Description: {schema['description']}")
+                print(f"Created: {schema['created_at']}")
+                print(f"Updated: {schema['updated_at']}")
+                print("-" * 80)
+        
+        elif choice == '4':
+            schemas = erd.db_manager.list_schemas()
+            if not schemas:
+                print("❌ No schemas found in database")
+                continue
+                
+            print("\nAvailable schemas:")
+            for schema in schemas:
+                print(f"{schema['id']}: {schema['name']}")
+            
+            try:
+                schema_id = int(input("\nEnter schema ID to delete: "))
+                confirm = input(f"Are you sure you want to delete schema {schema_id}? (y/N): ").strip().lower()
+                if confirm == 'y':
+                    erd.db_manager.delete_schema(schema_id)
+            except ValueError:
+                print("❌ Invalid ID entered")
+        
+        elif choice == '5':
+            break
+        
+        else:
+            print("❌ Invalid choice")
+
+
 def main():
     print("🎯 ERD Generator - Create Entity-Relationship Diagrams from Natural Language")
     print("=" * 70)
+
+    # Check database connection
+    if 'DATABASE_URL' in os.environ:
+        print("✅ Database connection available")
+    else:
+        print("⚠️ No database connection - database features disabled")
+        print("   Set up PostgreSQL database in Replit to enable database features")
 
     # Create ERD generator
     erd = ERDGenerator()
@@ -438,30 +775,55 @@ def main():
 
     # Interactive mode
     print("\n🎮 Interactive Mode:")
-    print("Enter your own description (or 'quit' to exit):")
+    print("Choose an option:")
+    print("1. Create new ERD from description")
+    print("2. Database management")
+    print("3. Exit")
 
     while True:
-        user_input = input("\n> Describe your system: ").strip()
+        choice = input("\nEnter your choice (1-3): ").strip()
+        
+        if choice == '1':
+            user_input = input("\n> Describe your system: ").strip()
 
-        if user_input.lower() in ['quit', 'exit', 'q']:
+            if user_input:
+                erd = ERDGenerator()
+                
+                # Ask if user wants to save to database
+                save_to_db = False
+                schema_name = None
+                if erd.db_manager.database_url:
+                    save_choice = input("Save to database? (y/N): ").strip().lower()
+                    if save_choice == 'y':
+                        save_to_db = True
+                        schema_name = input("Enter schema name: ").strip() or user_input[:30]
+                
+                erd.generate_from_prompt(user_input, save_to_db=save_to_db, schema_name=schema_name)
+                erd.print_summary()
+                
+                # Generate filename based on input
+                filename_base = user_input.lower().replace(' ', '_')[:20]
+                erd.visualize(save_path=f"{filename_base}_erd.jpg", ask_save_path=True)
+                erd.save_sql_to_file(f"{filename_base}_schema.sql")
+                
+                # Generate and save sample data
+                sample_data = erd.generate_sample_data()
+                if sample_data:
+                    with open(f"{filename_base}_sample_data.sql", 'w') as f:
+                        f.write(sample_data)
+                    print(f"Sample data saved to {filename_base}_sample_data.sql")
+        
+        elif choice == '2':
+            if not erd.db_manager.database_url:
+                print("❌ Database not available. Set up PostgreSQL database in Replit.")
+                continue
+            database_menu(erd)
+        
+        elif choice == '3':
             break
-
-        if user_input:
-            erd = ERDGenerator()
-            erd.generate_from_prompt(user_input)
-            erd.print_summary()
-            
-            # Generate filename based on input
-            filename_base = user_input.lower().replace(' ', '_')[:20]
-            erd.visualize(save_path=f"{filename_base}_erd.jpg", ask_save_path=True)
-            erd.save_sql_to_file(f"{filename_base}_schema.sql")
-            
-            # Generate and save sample data
-            sample_data = erd.generate_sample_data()
-            if sample_data:
-                with open(f"{filename_base}_sample_data.sql", 'w') as f:
-                    f.write(sample_data)
-                print(f"Sample data saved to {filename_base}_sample_data.sql")
+        
+        else:
+            print("❌ Invalid choice")
 
     print("\n👋 Thanks for using ERD Generator!")
 
