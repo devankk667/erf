@@ -1,28 +1,23 @@
-CREATE TABLE Book (
-    book_id INT,
-    title VARCHAR(255),
-    isbn VARCHAR(20),
-    PRIMARY KEY (book_id)
-);
-
-CREATE TABLE Author (
-    author_id INT,
+CREATE TABLE Guest (
+    guest_id INT,
     name VARCHAR(255),
-    PRIMARY KEY (author_id)
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    PRIMARY KEY (guest_id)
 );
 
-CREATE TABLE Member (
-    member_id INT,
-    name VARCHAR(255),
-    join_date DATE,
-    PRIMARY KEY (member_id)
+CREATE TABLE Room (
+    room_id INT,
+    room_number VARCHAR(10),
+    room_type VARCHAR(50),
+    price_per_night DECIMAL(10,2),
+    PRIMARY KEY (room_id)
 );
 
-CREATE TABLE Borrows (
-    member_id INT,
-    book_id INT,
-    borrow_date DATE,
-    PRIMARY KEY (member_id, book_id),
-    FOREIGN KEY (member_id) REFERENCES Member(member_id),
-    FOREIGN KEY (book_id) REFERENCES Book(book_id)
+CREATE TABLE Booking (
+    booking_id INT,
+    check_in_date DATE,
+    check_out_date DATE,
+    total_amount DECIMAL(10,2),
+    PRIMARY KEY (booking_id)
 );
