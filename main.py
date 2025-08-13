@@ -154,11 +154,20 @@ class ERDGenerator:
         for rel_name, rel_data in schema["relationships"].items():
             self.add_relationship(rel_name, rel_data["entities"], rel_data.get("attributes", []))
 
-    def visualize(self, save_path: str = None, figsize: Tuple[int, int] = (12, 8)):
+    def visualize(self, save_path: str = None, figsize: Tuple[int, int] = (12, 8), ask_save_path: bool = False):
         """Visualize the ERD using matplotlib"""
         if not self.G.nodes():
             print("No entities or relationships to visualize!")
             return
+
+        # Ask user for save path if requested
+        if ask_save_path and save_path is None:
+            user_path = input("\n📁 Enter the path/filename to save the ERD (or press Enter for default): ").strip()
+            if user_path:
+                # Ensure .jpg extension
+                if not user_path.lower().endswith('.jpg'):
+                    user_path += '.jpg'
+                save_path = user_path
 
         plt.figure(figsize=figsize)
 
@@ -397,7 +406,7 @@ def main():
     print("\n📚 Example 1: Generating Library Management System ERD")
     erd.generate_from_prompt("Create a library management system with books, authors, and members")
     erd.print_summary()
-    erd.visualize(save_path="library_erd.jpg")
+    erd.visualize(save_path="library_erd.jpg", ask_save_path=True)
     
     # Save SQL schema and sample data
     erd.save_sql_to_file("library_schema.sql")
@@ -414,7 +423,7 @@ def main():
     print("\n🛒 Example 2: Generating E-commerce System ERD")
     erd.generate_from_prompt("Design an online shopping platform with customers, products, and orders")
     erd.print_summary()
-    erd.visualize(save_path="ecommerce_erd.jpg")
+    erd.visualize(save_path="ecommerce_erd.jpg", ask_save_path=True)
 
     # Export to SQL
     print("\n💾 SQL Schema Export:")
@@ -444,7 +453,7 @@ def main():
             
             # Generate filename based on input
             filename_base = user_input.lower().replace(' ', '_')[:20]
-            erd.visualize(save_path=f"{filename_base}_erd.jpg")
+            erd.visualize(save_path=f"{filename_base}_erd.jpg", ask_save_path=True)
             erd.save_sql_to_file(f"{filename_base}_schema.sql")
             
             # Generate and save sample data
